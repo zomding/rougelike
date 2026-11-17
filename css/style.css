@@ -1,0 +1,67 @@
+/* style.css —— 页面外壳：深空底、居中、整数倍像素放大、无滚动条 */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #05040a;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Courier New", Consolas, "Lucida Console", monospace;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: default;
+
+  /* 背景：中心偏紫的径向光 + 四周压暗，营造"裂隙"氛围 */
+  background:
+    radial-gradient(circle at 50% 42%, rgba(74, 52, 150, 0.30) 0%, rgba(18, 12, 38, 0.85) 46%, #05040a 78%),
+    #05040a;
+}
+
+/* 细网格纹理（纯 CSS，不加载任何图片） */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(154, 134, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(154, 134, 255, 0.045) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(circle at 50% 45%, #000 20%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle at 50% 45%, #000 20%, transparent 72%);
+}
+
+#stage {
+  line-height: 0;
+  position: relative;
+}
+
+#game {
+  display: block;
+  /* 逻辑分辨率 480x270，由 JS 按整数倍放大，这里只保证像素不被平滑 */
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  background: #08060f;
+  cursor: crosshair;
+  touch-action: none;
+
+  /* 双重描边 + 外发光，像一块老式 CRT 玻璃 */
+  box-shadow:
+    0 0 0 1px #06050c,
+    0 0 0 3px #2a2154,
+    0 0 0 4px #06050c,
+    0 0 46px rgba(120, 80, 255, 0.28),
+    0 0 120px rgba(60, 30, 140, 0.22);
+}
