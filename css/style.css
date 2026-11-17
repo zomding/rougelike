@@ -65,3 +65,278 @@ body::before {
     0 0 46px rgba(120, 80, 255, 0.28),
     0 0 120px rgba(60, 30, 140, 0.22);
 }
+
+/* =========================================================================
+ * 手机 / 触摸屏适配
+ *  - body.touch-mode：由 js/touch.js 在触摸设备上加，键盘玩家完全不受影响
+ *  - 高清屏优先用 dvh，避免 iOS 地址栏把画布顶出屏幕
+ * ========================================================================= */
+
+@supports (height: 100dvh) {
+  html,
+  body {
+    height: 100dvh;
+  }
+}
+
+body.touch-mode {
+  /* 触摸设备上隐藏光标，避免"手掌误触"留下指针 */
+  cursor: default;
+}
+
+body.touch-mode #game {
+  cursor: default;
+  box-shadow:
+    0 0 0 1px #06050c,
+    0 0 0 2px #2a2154,
+    0 0 30px rgba(120, 80, 255, 0.22);
+}
+
+/* 竖屏继续游玩（用户点了"继续竖屏玩"）：画布贴顶，把下半屏让给拇指，
+ * 避免 480x270 的画面被整块居中后正好压在攻击键下面 */
+body.touch-mode.portrait {
+  align-items: flex-start;
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+}
+
+/* ------------------------------ 虚拟键位层 ------------------------------ */
+#touch-layer {
+  /* 用 vmin 让按钮在横屏手机上大小合适；safe-area 避开刘海与 Home 条 */
+  --tb: clamp(52px, 11.5vmin, 92px);
+  --tg: 10px;
+  --st: env(safe-area-inset-top, 0px);
+  --sr: env(safe-area-inset-right, 0px);
+  --sb: env(safe-area-inset-bottom, 0px);
+  --sl: env(safe-area-inset-left, 0px);
+
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 30;
+  /* 整层不吃事件，只有按钮本身吃 —— 中间的游戏画面照样能点 */
+  pointer-events: none;
+}
+
+body.touch-mode #touch-layer {
+  display: block;
+}
+
+.tbtn {
+  box-sizing: border-box;
+  position: absolute;
+  width: var(--tb);
+  height: var(--tb);
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  border: 2px solid rgba(154, 134, 255, 0.5);
+  background: rgba(14, 10, 30, 0.40);
+  color: #ded8ff;
+
+  font-family: inherit;
+  font-size: clamp(15px, 3.6vmin, 26px);
+  font-weight: 700;
+  line-height: 1;
+
+  opacity: 0.62;
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+
+  box-shadow:
+    0 0 0 1px rgba(5, 4, 10, 0.9),
+    0 0 18px rgba(120, 80, 255, 0.20),
+    inset 0 0 14px rgba(120, 80, 255, 0.14);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+
+  transition: transform 0.06s ease, background 0.06s ease, border-color 0.06s ease, opacity 0.06s ease;
+}
+
+/* 按下态：变亮 + 微缩，给手指一个"按到了"的反馈 */
+.tbtn.on {
+  opacity: 1;
+  background: rgba(112, 74, 240, 0.72);
+  border-color: #d3c8ff;
+  transform: scale(0.94);
+}
+
+/* 只在游戏进行中出现的键位（标题/结算界面藏起来，别挡住菜单） */
+body.touch-mode:not(.in-game) .tbtn-play {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 左下：左右移动 */
+#btn-left {
+  left: calc(var(--tg) + var(--sl));
+  bottom: calc(var(--tg) + var(--sb));
+}
+
+#btn-right {
+  left: calc(var(--tg) * 2 + var(--tb) + var(--sl));
+  bottom: calc(var(--tg) + var(--sb));
+}
+
+/* 右下三角：砍（最大，最顺手）/ 跳（正上方）/ 冲（左侧） */
+#btn-attack {
+  width: calc(var(--tb) * 1.15);
+  height: calc(var(--tb) * 1.15);
+  right: calc(var(--tg) + var(--sr));
+  bottom: calc(var(--tg) + var(--sb));
+  font-size: clamp(17px, 4.2vmin, 30px);
+}
+
+#btn-jump {
+  right: calc(var(--tg) + var(--sr));
+  bottom: calc(var(--tg) * 2 + var(--tb) * 1.15 + var(--sb));
+}
+
+#btn-dash {
+  right: calc(var(--tg) * 2 + var(--tb) * 1.15 + var(--sr));
+  bottom: calc(var(--tg) + var(--sb));
+}
+
+/* 右上：暂停 / 全屏
+ * 暂停往下挪一档，避开画布右上角 HUD 的金币和计时（那是最容易撞车的地方）；
+ * 全屏只在菜单/结算里出现 —— 打的时候既不需要、又会盖住 HUD。 */
+.tbtn-mini {
+  width: 40px;
+  height: 40px;
+  font-size: 15px;
+  opacity: 0.5;
+}
+
+#btn-pause {
+  right: calc(var(--tg) + var(--sr));
+  top: calc(var(--tg) + var(--st));
+}
+
+/* 游戏进行中：暂停按钮往下一档，避开画布右上角的金币/计时 */
+body.touch-mode.in-game #btn-pause {
+  top: calc(var(--st) + 58px);
+}
+
+#btn-full {
+  right: calc(var(--tg) * 2 + 40px + var(--sr));
+  top: calc(var(--tg) + var(--st));
+  font-size: 13px;
+}
+
+body.touch-mode.in-game #btn-full {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ------------------------------ 竖屏提示 ------------------------------ */
+#rotate-hint {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  color: #eae5ff;
+
+  background:
+    radial-gradient(circle at 50% 42%, rgba(58, 38, 130, 0.92) 0%, rgba(9, 7, 20, 0.98) 62%),
+    #05040a;
+  touch-action: none;
+}
+
+#rotate-hint:not([hidden]) {
+  display: flex;
+}
+
+.rh-box {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 320px;
+}
+
+/* 一个会"转过来"的手机图形，纯 CSS，不加载图片 */
+.rh-phone {
+  width: 74px;
+  height: 118px;
+  margin: 0 auto 22px;
+  border: 3px solid rgba(154, 134, 255, 0.75);
+  border-radius: 14px;
+  position: relative;
+  box-shadow: 0 0 34px rgba(120, 80, 255, 0.35);
+  animation: rh-turn 2.6s ease-in-out infinite;
+}
+
+.rh-phone i {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  width: 18px;
+  height: 3px;
+  margin-left: -9px;
+  border-radius: 2px;
+  background: rgba(200, 190, 255, 0.6);
+}
+
+@keyframes rh-turn {
+  0%, 30% {
+    transform: rotate(0deg) scale(1);
+  }
+  60%, 100% {
+    transform: rotate(90deg) scale(0.86);
+  }
+}
+
+.rh-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  margin-bottom: 10px;
+  color: #f2eeff;
+}
+
+.rh-sub {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #a99fd0;
+  margin-bottom: 24px;
+}
+
+.rh-btn {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  margin: 0 auto 10px;
+  padding: 12px 16px;
+  border: 1px solid #7c66ff;
+  border-radius: 10px;
+  background: linear-gradient(#3a2790, #291a63);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 15px;
+  letter-spacing: 1px;
+  touch-action: manipulation;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.rh-btn:active {
+  transform: translateY(1px);
+  filter: brightness(1.15);
+}
+
+.rh-btn-ghost {
+  background: transparent;
+  border-color: rgba(154, 134, 255, 0.38);
+  color: #b4aadb;
+}

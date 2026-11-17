@@ -68,15 +68,33 @@
   }
 
   /* ------------------------------ 画布缩放 ------------------------------ */
+  function viewportSize() {
+    // 手机上 innerHeight 会被地址栏/刘海骗，visualViewport 更准
+    var vv = global.visualViewport;
+    var w = vv && vv.width ? vv.width : 0;
+    var h = vv && vv.height ? vv.height : 0;
+    if (!w || !h) {
+      w = global.innerWidth || G.VIEW_W;
+      h = global.innerHeight || G.VIEW_H;
+    }
+    return { w: w, h: h };
+  }
+
   function resize() {
-    var sw = global.innerWidth || G.VIEW_W;
-    var sh = global.innerHeight || G.VIEW_H;
-    var scale = Math.min(sw / G.VIEW_W, sh / G.VIEW_H);
-    if (scale >= 1) {
-      scale = Math.floor(scale);      // 整数倍放大，像素最干净
+    var vs = viewportSize();
+    var isTouch = !!(global.Touch && global.Touch.isTouch && global.Touch.isTouch());
+    var scale = Math.min(vs.w / G.VIEW_W, vs.h / G.VIEW_H);
+
+    if (isTouch) {
+      // 手机：允许小数倍，把画面顶满短边（横屏时正好铺满高度），
+      // 否则 844x390 这种屏幕会被取整成 1 倍，四周留一大圈黑边。
+      scale = Math.max(0.25, scale);
+    } else if (scale >= 1) {
+      scale = Math.floor(scale);      // 台式机：整数倍放大，像素最干净
     } else {
       scale = Math.max(0.4, scale);   // 小窗口按比例缩小
     }
+
     canvas.style.width = Math.round(G.VIEW_W * scale) + 'px';
     canvas.style.height = Math.round(G.VIEW_H * scale) + 'px';
     ctx.imageSmoothingEnabled = false;
@@ -464,6 +482,11 @@
         global.SFX.setMuted(Game.save.muted);
         persistSave();
         global.SFX.play('ui');
+      } else if (!action && Input.mouse.clicked &&
+                 global.Touch && global.Touch.isTouch && global.Touch.isTouch()) {
+        // 触屏：点标题页空白处也能开始，不用非得戳中那个按钮
+        global.SFX.init();
+        startRun();
       }
       return;
     }
@@ -507,6 +530,9 @@
   function frame(ts) {
     global.requestAnimationFrame(frame);
 
+    // 让触摸层知道现在是不是在游戏里（标题界面藏起战斗键位）
+    if (global.Touch && global.Touch.sync) global.Touch.sync(Game.state);
+
     if (!lastTs) lastTs = ts;
     var dt = ts - lastTs;
     lastTs = ts;
@@ -546,8 +572,17 @@
     global.SFX.setMuted(!!Game.save.muted);
 
     Input.init(canvas);
+    // 触摸设备：挂上虚拟键位、横屏提示（非触摸设备里 Touch.init 直接空转）
+    if (global.Touch && global.Touch.init) global.Touch.init();
     resize();
     global.addEventListener('resize', resize, false);
+    global.addEventListener('orientationchange', function () {
+      resize();
+      if (global.Touch && global.Touch.refresh) global.Touch.refresh();
+    }, false);
+    if (global.visualViewport) {
+      global.visualViewport.addEventListener('resize', resize, false);
+    }
 
     // 首次用户手势解锁 AudioContext
     var unlock = function () {

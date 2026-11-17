@@ -580,12 +580,18 @@
   }
 
   /* ------------------------------ 开始菜单 ------------------------------ */
+  /* 触摸设备上，键位说明要换成"屏幕按钮"的说法 */
+  function isTouchUI() {
+    return !!(global.Touch && global.Touch.isTouch && global.Touch.isTouch());
+  }
+
   function drawMenu(ctx, save, time) {
     buttons = [];
     menuBackground(ctx, time);
     drawVignette(ctx);
 
     var cx = G.VIEW_W / 2;
+    var touchUI = isTouchUI();
 
     // 标题：像素点阵 + 红色错位投影
     var tw = ptextWidth('PIXEL RIFT', 3);
@@ -601,7 +607,7 @@
     cjk(ctx, '横版 · 肉鸽 · 清房间闯关', cx, 70, 9, C.dim, 'center', 1);
 
     // 开始按钮 + 音效开关
-    button(ctx, cx - 78, 88, 130, 24, '开 始 游 戏', 'start', { primary: true, hint: 'ENTER' });
+    button(ctx, cx - 78, 88, 130, 24, '开 始 游 戏', 'start', { primary: true, hint: touchUI ? 'TAP' : 'ENTER' });
     iconButton(ctx, cx + 58, 88, 24, 24, 'mute', function (c, mx, my, hover) {
       iconSound(c, mx, my, !!save.muted);
       if (hover) {
@@ -620,20 +626,32 @@
     var c1 = lx, c2 = lx + colW, c3 = lx + colW * 2;
 
     // 第一行：移动 / 跳跃 / 攻击
-    legend(ctx, c1, rowY, 'A/D', '移动');
-    legend(ctx, c2, rowY, 'SPACE', '跳跃');
-    legend(ctx, c3, rowY, 'LMB', '攻击');
+    if (touchUI) {
+      cjk(ctx, '屏幕左下角：控制左右移动', lx, rowY, 9, C.dim, 'left', 0);
+    } else {
+      legend(ctx, c1, rowY, 'A/D', '移动');
+      legend(ctx, c2, rowY, 'SPACE', '跳跃');
+      legend(ctx, c3, rowY, 'LMB', '攻击');
+    }
 
     // 第二行：冲刺 / 暂停 / 静音
     var row2 = rowY + 17;
-    legend(ctx, c1, row2, 'K', '冲刺');
-    legend(ctx, c2, row2, 'ESC', '暂停');
-    legend(ctx, c3, row2, 'M', '静音');
+    if (touchUI) {
+      cjk(ctx, '屏幕右下角：砍 攻击 · 跳 跳跃 · 冲 冲刺', lx, row2, 9, C.dim, 'left', 0);
+    } else {
+      legend(ctx, c1, row2, 'K', '冲刺');
+      legend(ctx, c2, row2, 'ESC', '暂停');
+      legend(ctx, c3, row2, 'M', '静音');
+    }
 
     // 第三行：补充说明 + 确认键
     var row3 = row2 + 17;
-    cjk(ctx, '左键攻击 · 空中还能再跳一次', lx, row3, 9, C.dim2, 'left', 0);
-    legend(ctx, c3, row3, 'ENTER', '确认');
+    if (touchUI) {
+      cjk(ctx, '右上角：暂停 · 全屏（横屏体验更佳）', lx, row3, 9, C.dim2, 'left', 0);
+    } else {
+      cjk(ctx, '左键攻击 · 空中还能再跳一次', lx, row3, 9, C.dim2, 'left', 0);
+      legend(ctx, c3, row3, 'ENTER', '确认');
+    }
 
     // 记录
     cjk(ctx, '最佳记录', cx, 198, 9, C.dim2, 'center', 1);
@@ -654,7 +672,11 @@
     // 闪烁提示
     var blink = 0.45 + 0.55 * Math.abs(Math.sin(time * 0.045));
     ctx.globalAlpha = blink;
-    ptext(ctx, 'PRESS ENTER TO BEGIN', cx, 240, 1, C.dim, 'center');
+    if (touchUI) {
+      cjk(ctx, '轻触屏幕开始游戏', cx, 238, 9, C.dim, 'center', 1);
+    } else {
+      ptext(ctx, 'PRESS ENTER TO BEGIN', cx, 240, 1, C.dim, 'center');
+    }
     ctx.globalAlpha = 1;
     cjk(ctx, 'v1.1 · 断网可玩 · 无需安装任何环境', cx, 254, 8, C.dim2, 'center', 1);
 
@@ -772,15 +794,18 @@
       }
     }
 
-    /* ---- 左下：道具栏 ---- */
+    /* ---- 底部：道具栏 ----
+     * 键盘时贴左下角；触屏时挪到底部居中 —— 左下角正好是左右移动键，
+     * 不挪的话 6 个格子会被两个大拇指盖住。 */
     var slots = 6;
     var slotSize = 17;
     var barY = G.VIEW_H - slotSize - 6;
     var barW = slots * (slotSize + 2) - 2 + 8;
-    plate(ctx, 4, barY - 4, barW, slotSize + 8, { accent: C.purple, corners: false, accentBar: false });
+    var barX = isTouchUI() ? Math.round((G.VIEW_W - barW) / 2) : 4;
+    plate(ctx, barX, barY - 4, barW, slotSize + 8, { accent: C.purple, corners: false, accentBar: false });
     var items = p.items;
     for (i = 0; i < slots; i++) {
-      var sx = 6 + i * (slotSize + 2);
+      var sx = barX + 2 + i * (slotSize + 2);
       var owned = i < items.length;
       var rare = owned ? G.RARITY[items[i].item.rarity] : null;
       var borderCol = owned ? (rare ? rare.color : C.edge) : 'rgba(255,255,255,0.10)';
@@ -886,7 +911,7 @@
 
     var bw = 152;
     var bx = Math.round((G.VIEW_W - bw) / 2);
-    button(ctx, bx, py + 62, bw, 22, '继 续 游 戏', 'resume', { primary: true, hint: 'ESC' });
+    button(ctx, bx, py + 62, bw, 22, '继 续 游 戏', 'resume', { primary: true, hint: isTouchUI() ? '' : 'ESC' });
     button(ctx, bx, py + 90, bw, 20, '重 新 开 始', 'restart', {});
     button(ctx, bx, py + 114, bw, 20, '返 回 标 题', 'menu', {});
 
@@ -937,7 +962,7 @@
 
     var bw = 176;
     var bx = Math.round((G.VIEW_W - bw) / 2);
-    button(ctx, bx, py + 146, bw, 22, '重 新 挑 战', 'restart', { primary: true, hint: 'ENTER' });
+    button(ctx, bx, py + 146, bw, 22, '重 新 挑 战', 'restart', { primary: true, hint: isTouchUI() ? '' : 'ENTER' });
     button(ctx, bx, py + 172, bw, 18, '返 回 标 题', 'menu', {});
 
     ptext(ctx, 'BEST ' + fmtTime(save.bestTime), px + 14, py + ph - 9, 1, C.dim2, 'left', false);

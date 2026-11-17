@@ -35,6 +35,9 @@
 
   var held = {};         // code -> true（物理按住）
   var press = {};        // action -> 剩余有效 tick
+  // 虚拟键位（触屏）：action -> true（按住中）。
+  // 与键盘分开存，这样手指按住鼠标区域时也不会互相干扰。
+  var virtual = {};
   // heldIgnored: 鼠标在“菜单/暂停”里按下并一直没松开时，
   // 不让这次按压被当成游戏里的攻击（否则点“开始”会白挥一刀）
   var mouse = { x: 0, y: 0, down: false, clicked: false, right: false, heldIgnored: false };
@@ -44,6 +47,22 @@
 
   function setPress(action) {
     press[action] = PRESS_LIFE;
+  }
+
+  /* ---- 虚拟键位（触屏）----
+   * down=true 时：进入"按住"状态，并且只在"从松到按"的瞬间送一次边沿。
+   * 这样连点/长按都走在同一套缓冲上，和键盘行为完全一致。 */
+  function setVirtual(action, down) {
+    if (!action || !ACTION_KEYS[action]) return;
+    var was = virtual[action] === true;
+    virtual[action] = !!down;
+    if (down && !was) setPress(action);
+  }
+
+  function clearVirtual() {
+    for (var a in virtual) {
+      if (Object.prototype.hasOwnProperty.call(virtual, a)) virtual[a] = false;
+    }
   }
 
   function pressActionForCode(code) {
@@ -57,6 +76,7 @@
   }
 
   function isDown(action) {
+    if (virtual[action]) return true;                                           // 触屏虚拟键按住
     if (action === 'attack' && mouse.down && !mouse.heldIgnored) return true;   // 鼠标左键 = 攻击
     var codes = ACTION_KEYS[action] || [];
     for (var i = 0; i < codes.length; i++) {
@@ -110,6 +130,7 @@
   function onMouseMove(e) { updateMousePos(e); }
 
   function onMouseDown(e) {
+    if (onTouchUI(e)) return;       // 点虚拟键位不触发攻击
     updateMousePos(e);
     var btn = (e.button === undefined) ? 0 : e.button;
     if (btn === 2) { mouse.right = true; return; }
@@ -138,11 +159,20 @@
   function onBlur() {
     held = {};
     press = {};
+    clearVirtual();
     releaseAll();
     mouse.clicked = false;
   }
 
+  /* 触摸点落在虚拟键位 / 竖屏提示上时，不要把它当成"点画面攻击" */
+  function onTouchUI(e) {
+    var t = e.target;
+    if (!t || !t.closest) return false;
+    return !!t.closest('#touch-layer, #rotate-hint');
+  }
+
   function onTouchStart(e) {
+    if (onTouchUI(e)) return;
     if (!e.touches || e.touches.length === 0) return;
     var t = e.touches[0];
     updateMousePos({ clientX: t.clientX, clientY: t.clientY });
@@ -204,6 +234,8 @@
     init: init,
     isDown: isDown,
     wasPressed: wasPressed,
+    setVirtual: setVirtual,
+    clearVirtual: clearVirtual,
     endTick: endTick,
     endFrame: endFrame,
     clearPresses: clearPresses,
